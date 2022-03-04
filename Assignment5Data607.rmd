@@ -1,0 +1,164 @@
+---
+title: "Data 607 Assignment 5"
+author: "Al Haque"
+date: "2/28/2022"
+output: html_document
+---
+
+```{r setup}
+library(tidyr)
+library(dplyr)
+## I cleaned up the CSV file a little bit before I read it into R, now I will attempt to tidy up the data
+Israeli_data <- read.csv("https://raw.githubusercontent.com/AldataSci/Data607Assignment5/main/Israeli_Vaccination_Data_Analysis.csv",stringsAsFactors = FALSE)
+Israeli_data <- as.data.frame(Israeli_data)
+head(Israeli_data)
+
+```
+
+
+
+
+```{r cars}
+##Step 1 Use tidyr and diplys to clean up the data since the data looks messy and unorganized.. 
+
+Unvax <- Israeli_data %>%
+  select("Age","Population..","Severe.Cases")
+
+Unvaxx <- Unvax %>%
+  slice(2,4)  %>%
+  mutate(Percent = as.numeric("23.3")) 
+
+Unvaxx[2,4] = as.numeric("7.9")
+
+NotvaxLabel <- c("Not Vaccinated", "Not Vaccinated")
+
+Clean_Unvaxx <- Unvaxx %>% 
+  mutate(Vaccine_Status = NotvaxLabel)
+Clean_Unvaxx
+  
+```
+
+```{r}
+## I use tidyr and diplyr to clean up the vaxxed data and then after I clean that up I plan to join the two tables.. in a nice and neatly manner... 
+
+Vaxx <- Israeli_data %>%
+  select("Age","X","X.1")
+
+Vax <- Vaxx %>% 
+  slice(-1) %>%
+  slice(1,3)
+
+Clean_Vaccinated <- Vax %>%
+  mutate(Percent = c("73.0","90.4"))  %>%
+  mutate(Vaccine_Status = c("Vaccinated","Vaccinated")) %>%
+  rename(Population.. = X) %>%
+  rename(Severe.Cases= X.1)
+
+Clean_Vaccinated        
+         
+```
+
+```{r} 
+## I used Rbind to add the two data tables together,  I arranged by age to make it more presentable.. 
+Cleaned_Data <- rbind(Clean_Unvaxx,Clean_Vaccinated)
+Cleaned_Data <-Cleaned_Data %>%
+  arrange(Age)
+Cleaned_Data
+```
+ 
+### Do you have enough information to calculate the total population? What does this total population represent?
+  
+   Looking at the chart the total population is not given to us. The data gives us 96.3 percent of people younger than 50 and also gives us 98.3 percent of people older than 50. To calculate the true total population we have to find the total population which would be 100 percent for both groups and add them together to get the total population. Here I calculated the totals based on the chart and also calculated the total when I gathered 100 percent of the population. The true total population is 7155090 while the chart recorded only 6937546.  
+
+
+```{r}
+## Calculating the Total Population, I first filter out the age where they are less than 50, I replaced the commas within the vector with spaces so I can convert them to integer and compute the sum 
+Young <- Cleaned_Data %>%
+  filter(Age=="<50")
+young_num <-gsub(",","",Young$Population..)
+Sum <- sum(as.integer(young_num))
+sprintf("The total population for people younger than 50 is approximately %s. which is 96.3 percent of the population",Sum)
+
+## Here I calculated the true total population by doing some simple proportions from algebra to get the population for 100% of the population  
+
+True_ysum <- (Sum * 100) / 96.3
+sprintf("The true total population for people younger than 50 is %s which is 100 percent of the population",round(True_ysum))
+```
+
+```{r}
+## Did the same thing except I filtered out the age where they are greater than 50
+Old <- Cleaned_Data %>%
+  filter(Age==">50") 
+old_num <-gsub(",","",Old$Population..)
+old_sum <-sum(as.integer(old_num))
+sprintf("The total population for people older than 50 is approximately %s which is 98.3 percent of the population",old_sum)
+
+True_odsum <- (old_sum * 100/98.3)
+sprintf("The true total population for people older than 50 is %s which is 100 percent of the population",round(True_odsum))
+```
+
+```{r}
+## I calculated the total population regardless of age and vaccination status
+
+Total <- Sum+old_sum
+sprintf("The total population that was recorded is: %s",Total)
+
+
+## Here is the true total population 
+True_total <- True_odsum+True_ysum
+sprintf("The true total population is: %s",round(True_total))
+```
+#### Understanding the differences in population 
+  I've calculated the differences in between the population in the graph and the total population in Israel and got a difference of 217544. I believe that these people were not calculated in the table for a few reasons. One possibility is that it didn't capture the entire population under 50 since the vaccines were not authorized for kids younger than 12. Also there may have been people who got a first dose but not the second dose thus they weren't completely "vaccinated" in the sense of being counted in the data. 
+
+```{r}
+Difference <- True_total - Total
+sprintf("The difference in population numbers is %s",round(Difference))
+```
+
+
+### Calculate the efficacy vs Disease
+   I got -0.4065 I wonder why I got a negative value, does this mean that covid vaccines are not effective at helping patients with severe cases? This is weird since the belief is that vaccines usually help reduce cases. 
+
+```{r}
+
+Fully_vax_Severe <- Cleaned_Data %>%
+  filter(Severe.Cases=="11" | Severe.Cases == "290") %>%
+  summarise(sum(as.integer(Severe.Cases)))
+
+
+Un_Vax_Severe <- Cleaned_Data %>%
+  filter(Severe.Cases=="43"|Severe.Cases=="171") %>%
+  summarise(sum(as.integer(Severe.Cases)))
+
+formula <- 1 - (Fully_vax_Severe/Un_Vax_Severe)
+sprintf("The efficacy vs disease is: %s",round(formula,digits = 4))
+```
+### Compare the rate of severe cases in unvaccinated individuals compared to vaccinated individuals 
+   Computing the rates and converting them to percentages I got that the percentage of severe cases is higher in vaccinated individuals then in unvaccinated individuals 
+
+```{r}
+## The rate of severe cases in un vaccinated individuals can be calculated by taking the number of unvaccinated individuals divided by the total amount of ppl 
+
+Total_pop <- Fully_vax_Severe + Un_Vax_Severe
+
+Unvac_Percentage <- (Un_Vax_Severe / Total_pop) * 100
+
+sprintf("The rate of severe cases in unvaccinated individuals is approximately %s percent",round(Unvac_Percentage, digits = 1))
+
+
+```
+```{r}
+
+## The rate of severe cases in un vaccinated individuals can be calculated by taking the number of vaccinated individuals divided by the total amount of ppl 
+
+Vac_Percentage <- (Fully_vax_Severe/ Total_pop) * 100
+
+sprintf("The rate of severe cases in vaccinated individuals is approximately %s percent",round(Vac_Percentage,digits=1))
+
+```
+
+### Conclusions:
+  This data set was really interesting and I found it really surprising that the data was incomplete since the chart didn't capture 100 percent of the people in Israel. It was also surprising that I got a negative value in calculating the efficacy vs severe disease, it seems older folks who got the vaccines had a higher percentage of getting into a severe case than compared to their un vaccinated counterparts. Even calculating the rates vaccinated individuals had a higher rate than the un vaccinated folks. 
+  
+  
